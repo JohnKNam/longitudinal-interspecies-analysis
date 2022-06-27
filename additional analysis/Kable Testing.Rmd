@@ -1,0 +1,37 @@
+---
+title: "SLAM Glucose, Body Weight, and Body Comp"
+author: "Eric Shiroma, John Nam"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r slam_hr_gluc_kable, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=TRUE}
+
+table <- data.frame(replicate(5,sample(0:1,5,rep=TRUE)))
+
+
+table2 <- kable(table, row.names = FALSE, col.names = c("Timepoint" , "Model 1", "Model 2", "Model 1", "Model 2"), escape = FALSE, align = "c", caption = "Mortality Hazard Ratios of Highest and Lowest Glucose Quartiles \n at Varying Timepoints Stratified by Sex") %>% 
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left", font_size = 12) %>% 
+  column_spec(1, bold = TRUE, border_right = T) %>% 
+  column_spec(3, border_right = T) %>% 
+  column_spec(5, border_right = T) %>% 
+  collapse_rows(columns = 1:2, valign = "middle") %>% 
+  add_header_above(c(" " = 1, "All" = 2, "Female" = 2)) %>% 
+  footnote(symbol = c(
+    "symbol 1", 
+    "symbol 2",
+    "symbol 3", 
+    "symbol 4", 
+    "symbol 5", 
+    "symbol 6", 
+    "symbol 7"))
+
+table2 
+
+```
