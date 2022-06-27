@@ -1,0 +1,1260 @@
+---
+title: "Interspecies Glucose, Body Weight, and Body Comp"
+author: "Eric Shiroma, Dushani Palliyaguru, John Nam"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+always_allow_html: true
+output:
+  html_document:
+    css: style.css
+    df_print: paged
+---
+
+```{r packages, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=FALSE}
+
+library (survival)
+library (broom)
+library (rms)
+library (ggplot2)
+library (ggthemes)
+library (extrafont)
+library (psych)
+library (survey)
+library (lubridate)
+library (kableExtra)
+library (gridExtra)
+library (ggpubr)
+library (grid)
+library (tinytex)
+library (haven)
+library (Hmisc) 
+library (tidyverse)
+library (finalfit)
+
+knitr::opts_chunk$set(autodep = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+```{r run_allRMD, warning=FALSE, message=FALSE, echo=FALSE, eval=FALSE, include=FALSE}
+
+# run below line in console to pull environmental objects into template after running all individual scripts: slamglu_200406, nhpglu_200406, blsaglu_200406, jaxglu_200406 and NHANES_isg_variables_200213
+
+# rmarkdown::render("C:/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final_2020/isg_template_200406.RMD", "html_document") 
+
+# rmarkdown::render("/Users/shiromaej/Box/ISG Code Check/code/isg_template_200406.RMD", "html_document") 
+
+```
+
+```{r load_fonts, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=FALSE}
+
+#load and find fonts for ggplots (currently set to "serif" family); 
+# wf <- windowsFonts() 
+# nytimes <- names(wf[wf=="TT Times New Roman"]) 
+nytimes <- "serif"
+
+#if new york times font is missing 
+# font_import() 
+# loadfonts(device = "win") 
+
+```
+
+***
+
+# Aim
+
+- This is an investigation into the longitudinal trajectories of glucose, body weight, and body fat in mice (SLAM/JAX), humans (BLSA), and non-human primates (NIA/WIS)
+
+# Methods 
+
+*** 
+
+- SLAM 
+    - n(`r slam_life_exp$total`): wave 1-6
+    - Timeframe for current analysis: (12/9/2015 - 11/21/2018)
+    - Average measure frequencies are as follows: 
+        - Fasting blood glucose: `r slam_gluc_asmt$mean` (`r slam_gluc_asmt$sd`)
+        - Body weight: `r slam_bw_asmt$mean` (`r slam_bw_asmt$sd`)
+        - Body fat: `r slam_fat_asmt$mean` (`r slam_fat_asmt$sd`)
+    - Deaths (`r slam_life_exp$dead`)
+    - Life expectancy: `r slam_life_exp$life_exp_wk` (`r slam_life_exp$sd`) 
+    - Sex: `r slam_sex_ratio`% female
+    
+- NHP (all colonies)
+    - n(`r nhp_life_exp$total`)
+    - Timeframe for current analysis: (5/1/1987 - 11/1/2018)
+    - Average measure frequencies are as follows: 
+        - Fasting blood glucose: `r nhp_gluc_asmt$mean` (`r nhp_gluc_asmt$sd`)
+        - Body weight: `r nhp_bw_asmt$mean` (`r nhp_bw_asmt$sd`)
+        - Body fat: `r nhp_fat_asmt$mean` (`r nhp_fat_asmt$sd`)
+    - Deaths (`r nhp_life_exp$dead`) 
+    - Life expectancy: `r nhp_life_exp$life_exp_wk` (`r nhp_life_exp$sd`) 
+    - Sex: `r nhp_sex_ratio`% female 
+    - Colony: `r nhp_strain_ratio`% wis 
+
+- BLSA 
+    - n(`r blsa_life_exp$total`)
+    - Timeframe for current analysis: (4/30/1958 - 6/25/2019)
+    - Average measure frequencies are as follows: 
+        - Fasting blood glucose: `r blsa_gluc_asmt$mean` (`r blsa_gluc_asmt$sd`)
+        - Body weight: `r blsa_bw_asmt$mean` (`r blsa_bw_asmt$sd`)
+        - Body fat: `r blsa_fat_asmt$mean` (`r blsa_fat_asmt$sd`)
+    - Deaths (`r blsa_life_exp$dead`)
+    - Life expectancy: `r blsa_life_exp$life_exp_wk` (`r blsa_life_exp$sd`)
+    - Sex: `r blsa_sex_ratio`% female
+
+- JAX 
+    - Timeframe for current analysis: (6/19/2011 - 6/29/2016)
+    - Average measure frequencies are as follows: 
+        - Fasting blood glucose: `r jax_gluc_asmt` (`r jax_gluc_asmt_sd`)
+
+- NHANES 
+    - Timeframe for current analysis: 1999 to 2016
+
+*** 
+
+# Figures and Tables
+<br> 
+<!-- figure 1: trends over time -->
+```{r isg_fig_2, eval=TRUE}
+
+cbPalette_dot <- c("#f8766d", "#00b0f6", "black") 
+cbPalette_line <- c("grey1", "#f8766d", "#00b0f6") 
+
+fig1a <- slam_fig_i1 +
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() +
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") +
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig1b <- slam_fig_i2 + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1c <- slam_fig_i3 + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1d <- nhp_fig_i1 + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") +
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1e <- nhp_fig_i2 + ylab("Body Weight (kg)") + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1f <- nhp_fig_i3 + ylab("Body Fat (kg)") + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1g <- blsa_fig_i1 +  
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1h <- blsa_fig_i2 + ylab("Body Weight (kg)") +
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig1i <- blsa_fig_i3 + ylab("Waist Circumference (cm)") + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limit = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig1a <- annotate_figure(fig1a, top = text_grob("      Mice (SLAM) ", face = "bold", size = 16, rot = 0, family = nytimes))
+fig1d <- annotate_figure(fig1d, top = text_grob("        Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes))
+fig1g <- annotate_figure(fig1g, top = text_grob("      Humans (BLSA) ", face = "bold", size = 16, rot = 0, family = nytimes))
+
+#
+fig_2 <- ggarrange(fig1a, fig1d, fig1g, fig1b, fig1e, fig1h, fig1c, fig1f, fig1i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right")
+
+```
+
+```{r isg_fig_2_plot, fig.height=9, fig.width=11, eval=TRUE}
+
+annotate_figure(fig_2, 
+                bottom = text_grob("\nFigure 2. Trends in Metabolic Indices over the Lifespan across Species by Sex\n ", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                ) 
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_2", plot = fig_2, dpi = 600, height = 11, width = 14)
+
+```
+
+*** 
+
+<!-- km data --> 
+```{r isg_fig_3_km_gluc, fig.height=10, fig.width=12, eval=TRUE}
+
+km_colors <- c("orange", "purple")
+
+fig2a <- slam_km_gluc_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2b <- slam_km_gluc_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2c <- slam_km_gluc_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2d <- nhp_km_gluc_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2e <- nhp_km_gluc_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2f <- nhp_km_gluc_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2g <- blsa_km_gluc_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2h <- blsa_km_gluc_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2i <- blsa_km_gluc_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2a <- annotate_figure(fig2a, top = text_grob("     Mice (SLAM)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2d <- annotate_figure(fig2d, top = text_grob("     Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2g <- annotate_figure(fig2g, top = text_grob("     Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig2a <- annotate_figure(fig2a, left = text_grob("50% Life Expectancy ", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2b <- annotate_figure(fig2b, left = text_grob("    75% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2c <- annotate_figure(fig2c, left = text_grob("  100% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+
+
+fig_3 <- ggarrange(fig2a, fig2d, fig2g, fig2b, fig2e, fig2h, fig2c, fig2f, fig2i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right") 
+
+``` 
+
+```{r isg_fig_3_km_bw, fig.height=10, fig.width=12, eval=TRUE}
+
+fig2a <- slam_km_bw_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2b <- slam_km_bw_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2c <- slam_km_bw_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2d <- nhp_km_bw_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2e <- nhp_km_bw_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2f <- nhp_km_bw_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2g <- blsa_km_bw_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2h <- blsa_km_bw_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2i <- blsa_km_bw_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2a <- annotate_figure(fig2a, top = text_grob("     Mice (SLAM)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2d <- annotate_figure(fig2d, top = text_grob("     Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2g <- annotate_figure(fig2g, top = text_grob("     Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig2a <- annotate_figure(fig2a, left = text_grob("50% Life Expectancy ", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2b <- annotate_figure(fig2b, left = text_grob("    75% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2c <- annotate_figure(fig2c, left = text_grob("  100% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+
+fig_s3 <- ggarrange(fig2a, fig2d, fig2g, fig2b, fig2e, fig2h, fig2c, fig2f, fig2i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right") 
+
+``` 
+
+```{r isg_fig_3_km_fat, fig.height=10, fig.width=12, eval=TRUE}
+
+fig2a <- slam_km_fat_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2b <- slam_km_fat_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2c <- slam_km_fat_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2d <- nhp_km_fat_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2e <- nhp_km_fat_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2f <- nhp_km_fat_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2g <- blsa_km_fat_50 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2h <- blsa_km_fat_75 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+fig2i <- blsa_km_fat_100 + 
+  ggtitle("") + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200)) 
+
+fig2a <- annotate_figure(fig2a, top = text_grob("     Mice (SLAM)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2d <- annotate_figure(fig2d, top = text_grob("     Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig2g <- annotate_figure(fig2g, top = text_grob("     Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig2a <- annotate_figure(fig2a, left = text_grob("50% Life Expectancy ", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2b <- annotate_figure(fig2b, left = text_grob("    75% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+fig2c <- annotate_figure(fig2c, left = text_grob("  100% Life Expectancy", face = "bold", size = 16, rot = 90, family = nytimes)) 
+
+fig_s4 <- ggarrange(fig2a, fig2d, fig2g, fig2b, fig2e, fig2h, fig2c, fig2f, fig2i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right") 
+
+``` 
+
+<!-- gluc all km plot  -->
+```{r isg_fig_3_plot_surv_gluc, fig.height=9, fig.width=11, eval=TRUE}
+
+fig_3_plot <- annotate_figure(fig_3, 
+                bottom = text_grob("\nFigure 3. Survival Curve and Age Adjusted Mortality Hazard Ratio Comparing Highest and Lowest Glucose Quartiles \nat Varying Timepoints across Species", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                ) 
+
+fig_3_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_3_plot", plot = fig_3_plot, dpi = 600, height = 10, width = 12)
+
+```
+
+*** 
+
+<!-- supplements -->
+
+<!-- table S1: pre and post peak rate  -->
+```{r isg_phase_changes, eval=TRUE}
+ 
+slam_phases$species <- NULL
+nhp_phases$species <- NULL
+blsa_phases$species <- NULL
+
+slam_phases2 <- slam_phases %>%
+  gather(key = "group", value = "value", -index) %>% 
+  mutate(index = factor(index, levels = c("gluc", "bw", "fat"))) %>% 
+  arrange(index) %>% 
+  mutate(group2 = ifelse(grepl("peak", group), "peak", 
+                  ifelse(grepl("2", group), "post", "pre"))) 
+
+slam_peaks <- slam_phases2 %>% 
+  filter(group2 == "peak")
+slam_pre <- slam_phases2 %>% 
+  filter(group2 == "pre")
+slam_post <- slam_phases2 %>% 
+  filter(group2 == "post")
+
+slam_all <- bind_cols(slam_peaks, slam_pre, slam_post)
+slam_all2 <- slam_all[,c(1:3,7,11)]
+colnames(slam_all2) <- c("index", "group", "peak", "pre","post")
+
+nhp_phases2 <- nhp_phases %>% 
+  gather(key = "group", value = "value", -index) %>% 
+  mutate(index = factor(index, levels = c("gluc", "bw", "fat"))) %>% 
+  arrange(index) %>% 
+  mutate(group2 = ifelse(grepl("peak", group), "peak", 
+                  ifelse(grepl("2", group), "post", "pre"))) 
+
+nhp_peaks <- nhp_phases2 %>% 
+  filter(group2 == "peak")
+nhp_pre <- nhp_phases2 %>% 
+  filter(group2 == "pre")
+nhp_post <- nhp_phases2 %>% 
+  filter(group2 == "post")
+
+nhp_all <- bind_cols(nhp_peaks, nhp_pre, nhp_post)
+nhp_all2 <- nhp_all[,c(1,3,7,11)]
+colnames(nhp_all2) <- c("index", "peak", "pre","post")
+
+blsa_phases2 <- blsa_phases %>% 
+  gather(key = "group", value = "value", -index) %>% 
+  mutate(index = factor(index, levels = c("gluc", "bw", "fat"))) %>% 
+  arrange(index) %>% 
+  mutate(group2 = ifelse(grepl("peak", group), "peak", 
+                  ifelse(grepl("2", group), "post", "pre"))) 
+
+blsa_peaks <- blsa_phases2 %>% 
+  filter(group2 == "peak")
+blsa_pre <- blsa_phases2 %>% 
+  filter(group2 == "pre")
+blsa_post <- blsa_phases2 %>% 
+  filter(group2 == "post")
+
+blsa_all <- bind_cols(blsa_peaks, blsa_pre, blsa_post)
+blsa_all2 <- blsa_all[,c(1,3,7,11)]
+colnames(blsa_all2) <- c("index", "peak", "pre","post")
+
+phase_all <- bind_cols(slam_all2, nhp_all2, blsa_all2) %>% 
+  select(-contains("index")) 
+
+phase_all$index <- c("Glucose", "Glucose", "Glucose", "Body Weight", "Body Weight", "Body Weight", "Body Fat", "Body Fat", "Body Fat")
+phase_all$group2 <- c("All", "Female", "Male", "All", "Female", "Male", "All", "Female", "Male")
+
+phase_all2 <- phase_all %>% 
+  mutate(index = cell_spec(index, "html", angle = -90)) %>% 
+  select(index, group2, everything(), -group)
+
+```
+
+```{r isg_table_s2_phase_prate, eval=TRUE}
+
+  table_s1 <- kable(phase_all2, row.names = FALSE, col.names = c("Metabolic <br> Index", "Group", "Peak Age $^‡$ <br> (% Life Expectancy)", "Pre-Peak$^§$$^¶$", "Post-Peak$^§$$^¶$", "Peak Age $^‡$ <br> (% Life Expectancy)", "Pre-Peak$^§$$^¶$", "Post-Peak$^§$$^¶$", "Peak Age $^‡$ <br> (% Life Expectancy)", "Pre-Peak$^§$$^¶$", "Post-Peak$^§$$^¶$"), align = c("c","c","c","c","c","c","c"), escape = FALSE,
+      caption = "Table S1. Rate of Percent Change in Metabolic Indices During Pre and Post-Peak Phases across Species by Sex") %>% 
+  kable_styling(bootstrap_options = "striped", full_width = TRUE, position = "left", font_size = 11) %>% 
+  column_spec(1, bold = TRUE) %>% 
+  
+  column_spec(1, bold = T, border_right = T) %>% 
+  column_spec(2, border_right = T) %>% 
+  column_spec(5, border_right = T) %>% 
+  column_spec(8, border_right = T) %>% 
+  column_spec(c(1), width = c("10px")) %>% 
+  column_spec(c(2), width = c("20px")) %>%
+  column_spec(c(3), width = c("100px")) %>% 
+  column_spec(c(4), width = c("100px")) %>% 
+  column_spec(c(5), width = c("100px")) %>% 
+  column_spec(c(6), width = c("100px")) %>% 
+  column_spec(c(7), width = c("100px")) %>% 
+  column_spec(c(8), width = c("100px")) %>% 
+  column_spec(c(9), width = c("100px")) %>% 
+  column_spec(c(10), width = c("100px")) %>% 
+  column_spec(c(11), width = c("100px")) %>% 
+
+  collapse_rows(columns = 1, valign = "middle") %>% 
+  add_header_above(c(" " = 2, "Mice (SLAM)" = 3, "Non-Human Primates" = 3, "Humans (BLSA)" = 3)) %>% 
+  footnote(
+    general = c(
+      "Abbreviations: Study of Longitudinal Aging in Mice (SLAM); Baltimore Longitudinal Study of Aging (BLSA)", 
+      "Measure units: glucose for all species (mg/dL); body weight for mice (g), humans and non-human primates (kg); body fat for mouse fat (g), human waist circumference (cm), and non-human primate fat (kg)"),
+    symbol = c(
+      "p-value < 0.05",
+      "Insufficient sample size to conduct a statistical test of significance", 
+      "Mean (range of ages at similar values) of age at peak index value", 
+      "Mean (95% confidence interval) rate of percent change during phase per five percent change in life expectancy", 
+      "Pre-peak is defined as 25% life expectancy to age at peak value; post-peak phase is defined as peak to 125% life expectancy")) 
+
+table_s1 
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/table_s1", plot = table_s1, dpi = 600)
+
+```
+
+***
+
+<!-- table S2: HR ref table  -->
+
+```{r isg_km_hr2, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=TRUE}
+
+slam_hr_toc_by_3a$species <- NULL
+nhp_hr_toc_by_3a$species <- NULL
+blsa_hr_toc_by_3a$species <- NULL
+
+slam_gluc <- slam_hr_toc_by_3a %>% 
+  gather(key = "group", value = "hr", -timepoint) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  mutate(group3 = ifelse(grepl("1", group), "hr1", "hr2"))
+
+slam_gluc1 <- slam_gluc %>% 
+  filter(group3 == "hr1") %>% 
+  select(timepoint, group2, hr) 
+
+slam_gluc2 <- slam_gluc %>% 
+  filter(group3 == "hr2") %>% 
+  select(timepoint, group2, hr) 
+
+slam_gluc_all <- bind_cols(slam_gluc1, slam_gluc2) %>% 
+  select(timepoint, group2, contains("hr"))
+##
+nhp_gluc <- nhp_hr_toc_by_3a %>% 
+  gather(key = "group", value = "hr", -timepoint) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  mutate(group3 = ifelse(grepl("1", group), "hr1", "hr2"))
+
+nhp_gluc1 <- nhp_gluc %>% 
+  filter(group3 == "hr1") %>% 
+  select(timepoint, group2, hr) 
+
+nhp_gluc2 <- nhp_gluc %>% 
+  filter(group3 == "hr2") %>% 
+  select(timepoint, group2, hr) 
+
+nhp_gluc_all <- bind_cols(nhp_gluc1, nhp_gluc2) %>% 
+  select(timepoint, group2, contains("hr"))
+##
+blsa_gluc <- blsa_hr_toc_by_3a %>% 
+  gather(key = "group", value = "hr", -timepoint) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  mutate(group3 = ifelse(grepl("1", group), "hr1", "hr2"))
+
+blsa_gluc1 <- blsa_gluc %>% 
+  filter(group3 == "hr1") %>% 
+  select(timepoint, group2, hr) 
+
+blsa_gluc2 <- blsa_gluc %>% 
+  filter(group3 == "hr2") %>% 
+  select(timepoint, group2, hr) 
+
+blsa_gluc_all <- bind_cols(blsa_gluc1, blsa_gluc2) %>% 
+  select(timepoint, group2, contains("hr"))
+
+gluc_all <- bind_cols(slam_gluc_all, nhp_gluc_all, blsa_gluc_all) %>% 
+  select(group2, everything())
+gluc_all2 <- gluc_all[,c(1:4,7:8,11:12)]
+
+gluc_all <- gluc_all2 %>% 
+  mutate(group2 = cell_spec(group2, "html", angle = -90)) %>% 
+  select(group2, everything()) 
+
+```
+
+```{r isg_km_hr3, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=TRUE}
+
+slam_hr_toc_by_3b$species <- NULL
+nhp_hr_toc_by_3b$species <- NULL
+blsa_hr_toc_by_3b$species <- NULL
+
+slam_bc <- slam_hr_toc_by_3b %>% 
+  gather(key = "group", value = "hr", -timepoint, -indices) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  arrange(desc(indices)) %>% 
+  select(indices, group2, timepoint, everything(), -group)
+
+nhp_bc <- nhp_hr_toc_by_3b %>% 
+  gather(key = "group", value = "hr", -timepoint, -indices) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  arrange(desc(indices)) %>% 
+  select(indices, group2, timepoint, everything(), -group)
+
+blsa_bc <- blsa_hr_toc_by_3b %>% 
+  gather(key = "group", value = "hr", -timepoint, -indices) %>% 
+  mutate(group2 = ifelse(grepl("all", group), "All", 
+                  ifelse(grepl("_f", group), "Female", "Male"))) %>% 
+  arrange(desc(indices)) %>% 
+  select(indices, group2, timepoint, everything(), -group)
+
+bc_all <- bind_cols(slam_bc, nhp_bc, blsa_bc) 
+bc_all2 <- bc_all[,c(1:4,8,12)]
+
+bc_all3 <- bc_all2 %>% 
+  mutate(indices = cell_spec(indices, "html", angle = -90)) %>% 
+  mutate(group2 = cell_spec(group2, "html", angle = -90)) %>% 
+  select(indices, group2, everything()) 
+
+```
+
+```{r isg_km_hr_gluc, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=TRUE}
+
+table_s2 <- kable(gluc_all2, row.names = FALSE, col.names = c("Group", "Timepoint$^†$" , "HR$^1$", "HR$^2$", "HR$^1$", "HR$^2$", "HR$^1$",  "HR$^2$"), escape = FALSE, align = "c", caption = "Table S2: Mortality Hazard Ratios of Highest and Lowest Glucose Quartiles at Varying Timepoints across Species by Sex ") %>% 
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left", font_size = 13) %>% 
+  column_spec(1, bold = TRUE, border_right = T) %>% 
+  column_spec(2, border_right = T) %>% 
+  column_spec(4, border_right = T) %>% 
+  column_spec(6, border_right = T) %>% 
+  column_spec(c(3:8), width = "30em") %>% 
+  collapse_rows(columns = 1:2, valign = "middle") %>% 
+  add_header_above(c(" " = 2, "Mice (SLAM)" = 2, "Non-Human Primates" = 2, "Humans (BLSA)" = 2)) %>% 
+  footnote(
+    general = c("Abbreviations: Study of Longitudinal Aging in Mice (SLAM); Baltimore Longitudinal Study of Aging (BLSA)"),
+    symbol = c("p-value < 0.05", 
+               "Timepoint is percent of mean life expectancy",
+               "Hazard ratios are adjusted for: 1) age and sex; 2) additionally adjusted for body fat")
+           ) 
+
+table_s2
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/table_s2", plot = table_s2, dpi = 600)
+
+```
+
+*** 
+
+<!-- figure S1: generalizability  -->
+```{r isg_generalizability, include=TRUE}
+
+slam_comp <- slam_main_all %>% 
+  select(idno, gluc, sex, per_age_wk) 
+slam_comp$study = "slam" 
+
+jax_comp <- jax_main_all %>% 
+  select(idno, gluc, sex, per_age_wk) 
+jax_comp$study = "jax" 
+
+blsa_comp <- blsa_main_all %>% 
+  select(gluc, per_age_wk) 
+blsa_comp$study = "blsa" 
+
+
+#nhanes
+nhanes_comp <- nhanes_main_all %>% 
+  rename(gluc = PG_Norm_3, age_wk = AGE) %>% 
+  select(gluc, per_age_wk) 
+nhanes_comp$study = "nhanes" 
+
+
+#combinations 
+mice_comp <- rbind(slam_comp, jax_comp) %>% 
+  mutate(study = factor(study, levels = c("slam", "jax")))
+
+human_comp <- rbind(blsa_comp, nhanes_comp) %>% 
+  mutate(study = as.factor(study)) 
+
+
+plot_mouse <- function(metric, x, y, by, xlabel, ylabel, title, xlow, xhigh, data) { 
+
+  #subsetting
+  metric2 <- paste0("!is.na(", metric, ")") 
+  df <- base::subset(data, eval(parse(text = metric2))) 
+  df <- df %>% filter(per_age_wk < 148) #max le for slam mice
+  sub <- paste0(metric, " > quantile(", metric, ", 0.025) & ", metric, " < quantile(", metric, ", 0.975)") 
+    
+  z <- Inf
+
+  ggplot(subset(df, eval(parse(text = sub))), aes_string(x = x, y = y, colour = by)) + 
+    
+    #dots
+    geom_point(alpha=0.5, position = "jitter", size = 1, aes_string(colour = by), shape=1) +
+    
+    #trendline gam
+    geom_smooth(data = subset(df, study == "slam"), aes_string(linetype = "solid"), linetype = "solid", color = "black", size = 1.8) +
+    geom_smooth(data = subset(df, study == "slam"), aes(linetype = "solid")) + 
+    # 
+    # trendline quad
+    geom_smooth(data = subset(df, study == "jax"), aes_string(linetype = "solid"), method = "loess",
+                linetype = "solid", color = "black", size = 1.8, se = FALSE) +
+    geom_smooth(data = subset(df, study == "jax"), aes(linetype = "solid"), method = "loess", size = 1, se = FALSE) +
+
+    #labels 
+    xlab(xlabel) + 
+    ylab(ylabel) + 
+    xlim(xlow, xhigh) +
+    
+    scale_linetype_manual(labels = c("All"), name = "", values = c("solid", "dashed", "solid"), guide = FALSE)
+} 
+
+plot_human <- function(metric, x, y, by, xlabel, ylabel, title, xlow, xhigh, data) { 
+
+  #subsetting
+  metric2 <- paste0("!is.na(", metric, ")") 
+  df <- base::subset(data, eval(parse(text = metric2))) 
+  sub <- paste0(metric, " > quantile(", metric, ", 0.025) & ", metric, " < quantile(", metric, ", 0.975)") 
+    
+  z <- Inf
+
+  ggplot(subset(df, eval(parse(text = sub))), aes_string(x = x, y = y, colour = by)) + 
+    
+    #dots
+    geom_point(alpha=0.5, position = "jitter", size = 1, aes_string(colour = by), shape=1) +
+    
+    #trendline gam
+    geom_smooth(aes_string(group = by, linetype = "solid"), linetype = "solid", color = "black", size = 1.8) +
+    geom_smooth(aes(linetype = "solid")) + 
+    
+    #labels
+    xlab(xlabel) + 
+    ylab(ylabel) + 
+    xlim(xlow, xhigh) +
+    
+    scale_linetype_manual(labels = c("All"), name = "", values = c("solid", "dashed", "solid"), guide = FALSE)
+} 
+
+
+##
+mouse_gluc <- plot_mouse(metric = "gluc", x = "per_age_wk", xlabel = "Percent Life Expectancy", xlow = 0, xhigh = 149, 
+                        y = "gluc", ylabel = "Glucose (mg/dL)", by = "study", data = mice_comp)
+
+human_gluc <- plot_human(metric = "gluc", x = "per_age_wk", xlabel = "Percent Life Expectancy", xlow = 0, xhigh = 149, 
+                        y = "gluc", ylabel = "Glucose (mg/dL)", by = "study", data = human_comp) 
+
+``` 
+ 
+```{r isg_generalizability_fig}
+
+mouse_gluc2 <- mouse_gluc + 
+  scale_color_manual(labels = c("SLAM", "JAX"), labs(colour = ""), values=cbPalette_dot) + 
+  theme_bw() +
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  ylim(75, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limits = c(0, 130), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+## 
+human_gluc2 <- human_gluc + 
+  scale_color_manual(labels = c("BLSA", "NHANES"), labs(colour = ""), values=cbPalette_dot) + 
+  theme_bw() +
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  ylim(75, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limits = c(0, 130), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+##
+mouse_gluc3 <- annotate_figure(mouse_gluc2, top = text_grob("Mice", face = "bold", size = 16, rot = 0, hjust = 0, x = unit(6.5, "lines"), family = nytimes)) 
+human_gluc3 <- annotate_figure(human_gluc2, top = text_grob("Humans", face = "bold", size = 16, rot = 0, hjust = 0, x = unit(6, "lines"), family = nytimes)) 
+
+fig_s2 <- ggarrange(mouse_gluc3, human_gluc3,
+                   ncol = 2)
+
+``` 
+
+```{r isg_sfig_s3, fig.height=3.5, fig.width=9, eval=TRUE}
+
+#fig_s2_plot <- annotate_figure(fig_s2,
+#                bottom = text_grob("Figure S2. Trends in Metabolic Indices over the Lifespan Compared to External #Studies \n ", hjust = .55)
+#                ) 
+
+fig_s2_plot <- annotate_figure(fig_s2,
+                bottom = text_grob("\nFigure S1.  Trends in Metabolic Indices over the Lifespan Compared to External Studies", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                ) 
+
+
+fig_s2_plot 
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_s2_plot", plot = fig_s2_plot, dpi = 600, height = 3.5, width = 9)
+
+``` 
+
+*** 
+
+<!-- bw all km plot  -->
+```{r isg_fig_3_plot_surv_bw, fig.height=9, fig.width=11, eval=TRUE}
+
+fig_s3_plot <- annotate_figure(fig_s3, 
+                bottom = text_grob("\nFigure S2. Survival Curve and Age Adjusted Mortality Hazard Ratio Comparing Highest and Lowest Body Weight Quartiles \nat Varying Timepoints across Species", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                ) 
+
+fig_s3_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_s3_plot", plot = fig_s3_plot, dpi = 600, height = 10, width = 12)
+
+```
+
+*** 
+<!-- fat all km plot  -->
+```{r isg_fig_3_plot_surv_fat, fig.height=9, fig.width=11, eval=TRUE}
+
+fig_s4_plot <- annotate_figure(fig_s4, 
+                bottom = text_grob("\nFigure S3. Survival Curve and Age Adjusted Mortality Hazard Ratio Comparing Highest and Lowest Body Fat Quartiles \nat Varying Timepoints across Species", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                ) 
+
+fig_s4_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_s4_plot", plot = fig_s4_plot, dpi = 600, height = 10, width = 12)
+
+```
+
+*** 
+
+<!-- ## Author Questions -->
+
+<!-- figure A1: trends by strain  --> 
+```{r isg_strain_fig_s1, fig.height=11, fig.width=14, eval=TRUE}
+
+fig1a <- slam_fig_j1 +
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+fig1b <- slam_fig_j2 + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+fig1c <- slam_fig_j3 + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1d <- nhp_fig_j1 +  
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1e <- nhp_fig_j2 + ylab("Body Weight (kg)") + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1f <- nhp_fig_j3 + ylab("Body Fat (kg)") + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1g <- blsa_fig_j1 + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  ylim(40, 200) + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1h <- blsa_fig_j2 + ylab("Body Weight (kg)") +
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1i <- blsa_fig_j3 + ylab("Waist Circumference (cm)") + 
+  scale_color_manual(labels = c("B6 / NIA / Non-White", "HET3 / WIS / White"), labs(fill = "Subgroup"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1a <- annotate_figure(fig1a, top = text_grob("     Mice (SLAM) ", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig1d <- annotate_figure(fig1d, top = text_grob("     Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig1g <- annotate_figure(fig1g, top = text_grob("     Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig_s1 <- ggarrange(fig1a, fig1d, fig1g, fig1b, fig1e, fig1h, fig1c, fig1f, fig1i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right") 
+
+```
+
+```{r isg_fig_s1_plot, fig.height=9, fig.width=11, eval=TRUE}
+
+fig_s1_plot <- annotate_figure(fig_s1, 
+                bottom = text_grob("\nFigure A1.  Trends in Metabolic Indices over the Lifespan across Species by Subgroup", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                )
+
+fig_s1_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_s1_plot", plot = fig_s1_plot, dpi = 600, height = 11, width = 14)
+
+```
+
+<!-- figure A2: diabetes trends  --> 
+```{r isg_diab_fig_s7, fig.height=7, fig.width=14, eval=TRUE}
+
+fig1d <- nhp_fig_diab1 +
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1e <- nhp_fig_diab2 + ylab("Body Weight (kg)") +
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1f <- nhp_fig_diab3 + ylab("Body Fat (kg)") +
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1g <- blsa_fig_diab1 + 
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1h <- blsa_fig_diab2 + ylab("Body Weight (kg)") + 
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1i <- blsa_fig_diab3 + ylab("Waist Circumference (cm)") +
+  scale_color_manual(labels = c("Diabetic", "Non-diabetic"), labs(fill = "Diabetes Status"), values = cbPalette_dot) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1d <- annotate_figure(fig1d, top = text_grob("      Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig1g <- annotate_figure(fig1g, top = text_grob("      Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig_a1 <- ggarrange(fig1d, fig1g, fig1e, fig1h, fig1f, fig1i, 
+                    ncol = 2, nrow = 3, common.legend = TRUE, legend = "right") 
+
+```
+ 
+```{r isg_fig_a1_plot, fig.height=9, fig.width=7, eval=TRUE}
+
+fig_a1_plot <- annotate_figure(fig_a1, 
+                bottom = text_grob("\nFigure A2.  Trends in Metabolic Indices over the Lifespan across Species by Diabetes Status \n ", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                )
+
+fig_a1_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_a1_plot", plot = fig_a1_plot, dpi = 600, height = 11, width = 10)
+
+```
+
+*** 
+
+<!-- figure A3: lifespan trends  --> 
+```{r isg_lifespan_fig_s6, eval=TRUE}
+
+cpal_LE <- c("green", "orange", "red", "purple", "grey")
+cpal_LE2 <- c("orange", "red", "purple", "grey")
+
+
+fig1a <- slam_fig_d1 + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1b <- slam_fig_d2 + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1c <- slam_fig_d3 + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1d <- nhp_fig_d1 + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1e <- nhp_fig_d2 + ylab("Body Weight (kg)") + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE2) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1f <- nhp_fig_d3 + ylab("Body Fat (kg)") + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE2) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1g <- blsa_fig_d1 + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1h <- blsa_fig_d2 + ylab("Body Weight (kg)") + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) +  
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1i <- blsa_fig_d3 + ylab("Waist Circumference (cm)") + 
+  scale_color_manual(labels = c("25", "50", "75", "100", "125"), labs(fill = "Lifespan Group"), values = cpal_LE) + 
+  theme(legend.key.size=unit(1,"cm")) +
+  theme_bw() + 
+  theme(legend.key = element_rect(fill = "white", color = "black")) + 
+  guides(color=guide_legend(override.aes=list(fill=NA, linetype = c("solid")), order = 1)) + 
+  theme(legend.position = "none") + 
+  theme(text=element_text(size=12, family=nytimes)) + 
+  scale_x_continuous(limits = c(0, 150), breaks = c(0, 25, 50, 75, 100, 125, 150, 175, 200))
+
+fig1a <- annotate_figure(fig1a, top = text_grob("     Mice (SLAM) ", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig1d <- annotate_figure(fig1d, top = text_grob("     Non-Human Primates", face = "bold", size = 16, rot = 0, family = nytimes)) 
+fig1g <- annotate_figure(fig1g, top = text_grob("     Humans (BLSA)", face = "bold", size = 16, rot = 0, family = nytimes)) 
+
+fig_a2 <- ggarrange(fig1a, fig1d, fig1g, fig1b, fig1e, fig1h, fig1c, fig1f, fig1i, 
+                    ncol = 3, nrow = 3, common.legend = TRUE, legend = "right") 
+
+```
+ 
+```{r isg_fig_s6_plot, fig.height=9, fig.width=11, eval=TRUE}
+
+fig_a2_plot <- annotate_figure(fig_a2, 
+                bottom = text_grob("\nFigure A3.  Trends in Metabolic Indices over the Lifespan across Species by Survival", size = 12, hjust = 0, x = unit(0, "lines"), family = nytimes)
+                )
+
+fig_a2_plot
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/fig_a2_plot", plot = fig_a2_plot, dpi = 600, height = 11, width = 14)
+
+```
+
+***
+<!-- table A1: bw and fat HR's  --> 
+```{r isg_km_hr_bw, warning=FALSE, message=FALSE, echo=FALSE, eval=TRUE, include=TRUE}
+
+table_s3 <- kable(bc_all3, row.names = FALSE, col.names = c("Metabolic Index", "Group", "Timepoint$^†$" , "Mice <br> (SLAM)", "Non-Human <br> Primates", "Humans <br> (BLSA)"), escape = FALSE, align = "c", caption = "Table A1: Mortality Hazard Ratios of Highest and Lowest Body Weight and Body Fat Quartiles \n at Varying Timepoints across Species by Sex") %>% 
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left", font_size = 13) %>% 
+  column_spec(1, bold = TRUE, border_right = T) %>% 
+  column_spec(2, border_right = T) %>% 
+  column_spec(3, border_right = T) %>% 
+  column_spec(4, border_right = T) %>% 
+  column_spec(5, border_right = T) %>% 
+  column_spec(6, border_right = T) %>% 
+  column_spec(c(1:3), width = "10em") %>% 
+  column_spec(c(4:6), width = "30em") %>% 
+  collapse_rows(columns = 1:2, valign = "middle") %>% 
+  footnote(
+    general = c("Abbreviations: Study of Longitudinal Aging in Mice (SLAM); Baltimore Longitudinal Study of Aging (BLSA)", 
+                "Measure units: body weight for mice (g), humans and non-human primates (kg); body fat for mouse fat (g), human waist circumference (cm), and non-human primate fat (kg)"),
+    symbol = c("p-value < 0.05", 
+               "Timepoint is percent of mean life expectancy",
+               "Hazard ratios (95% confidence intervals) are adjusted for age and sex")
+    ) 
+
+table_s3
+
+# ggsave(filename = "/Users/johnk/OneDrive/Documents/NIH/Projects/Interspecies Glucose/isg_final2020/table_s3", plot = table_s3, dpi = 600)
+
+```
+
+*** 

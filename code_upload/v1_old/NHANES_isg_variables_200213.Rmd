@@ -1,0 +1,212 @@
+---
+title: "NHANES Variables"
+author: "Eric Shiroma, John Nam"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+
+#Global RMD Settings 
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+require("knitr")
+
+```
+
+```{r setup_libraries_wd, message=FALSE, echo=FALSE, include=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(broom)
+library(knitr)
+library(readxl)
+library(magrittr)
+library(dplyr)
+library(foreign)
+library(car)
+library(ggpubr)
+library(kableExtra)
+library(ggpmisc)
+library(Hmisc)
+library(survival)
+library(survey)
+
+```
+
+```{r getting_data, message=FALSE, echo=FALSE, include=FALSE, warning = FALSE}
+
+#Testing Data: OGTT and FPG 
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/LAB10AM.XPT")-> Glu_1
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/L10AM_B.XPT")-> Glu_2
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/L10AM_C.XPT")-> Glu_3
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_D.XPT")-> Glu_4
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_E.XPT")-> Glu_5
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_F.XPT")-> Glu_6
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_G.XPT")-> Glu_7
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_H.XPT")-> Glu_8
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/GLU_I.XPT")-> Glu_9
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_D.XPT")-> OGTT_4
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_E.XPT")-> OGTT_5
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_F.XPT")-> OGTT_6
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_G.XPT")-> OGTT_7
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_H.XPT")-> OGTT_8
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/OGTT_I.XPT")-> OGTT_9
+
+#covariate data
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO.XPT")-> Dem_1
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_B.XPT")-> Dem_2
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_C.XPT")-> Dem_3
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_D.XPT")-> Dem_4
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_E.XPT")-> Dem_5
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_F.XPT")-> Dem_6
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_G.XPT")-> Dem_7
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_H.XPT")-> Dem_8
+read.xport("/Users/shiromaej/Box/ISG Code Check/data/nhanes//nhanes_data/Glucose Data/DEMO_I.XPT")-> Dem_9
+
+#filter for relavant columns
+func_1 <- function(x){
+  x <- x %>%
+    dplyr::select("SEQN", "LBXGLU", "WTSAF2YR")
+}
+
+list_labtest<-list(Glu_1, Glu_2, Glu_3, Glu_4, Glu_5, Glu_6, Glu_7, Glu_8, Glu_9) %>%
+lapply(FUN = func_1)->list_labtest_GLU
+
+func_2 <- function(x){
+  x <- x %>%
+    dplyr::select( "SEQN", "LBXGLT", "WTSOG2YR")
+}
+
+list_labtest<-list(OGTT_4, OGTT_5, OGTT_6, OGTT_7, OGTT_8, OGTT_9) %>%
+lapply(FUN = func_2)->list_labtest_OGTT
+
+
+func_3a <- function(x){
+  x <- x %>% 
+    dplyr::select( "SEQN", "RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2", "DMDEDUC3", "INDFMPIR", "DMDHHSIZ", "SDMVSTRA", "SDMVPSU", "SDDSRVYR")
+} 
+
+list<-list(Dem_1, Dem_2, Dem_3) %>% 
+  lapply(FUN = func_3a)->list_Dem1 
+
+match("DMDEDUC2", colnames(Dem_5))
+                           
+func_3b <- function(x){
+  x <- x %>%
+    dplyr::select( "SEQN", "RIDAGEYR", "RIAGENDR", "RIDRETH1", "DMDEDUC2", "DMDEDUC3", "INDFMPIR", "DMDHHSIZ", "DMDFMSIZ", "SDMVSTRA", "SDMVPSU", "SDDSRVYR") 
+}
+
+list<-list(Dem_4, Dem_5, Dem_6, Dem_7, Dem_8, Dem_9) %>% 
+  lapply(FUN = func_3b) -> list_Dem2 
+
+list_Dem <- c(list_Dem1, list_Dem2) 
+
+#Adding name to list of DF
+names(list_labtest_GLU)<-c("Glu_1", "Glu_2", "Glu_3", "Glu_4", "Glu_5", "Glu_6", "Glu_7", "Glu_8", "Glu_9") 
+names(list_labtest_OGTT)<-c("OGTT_4","OGTT_5", "OGTT_6", "OGTT_7", "OGTT_8", "OGTT_9")
+names(list_Dem)<-c("Dem_1", "Dem_2", "Dem_3", "Dem_4", "Dem_5", "Dem_6", "Dem_7", "Dem_8", "Dem_9")
+
+
+#List of DF to individual DF 
+list2env(list_labtest_GLU, .GlobalEnv) 
+list2env(list_labtest_OGTT, .GlobalEnv) 
+list2env(list_Dem, .GlobalEnv) 
+
+```
+
+```{r setting_up_data, message=FALSE, echo=FALSE, include=FALSE, warning = FALSE}
+
+#Splicing together Cohorts
+
+func_join <- function(x,...){
+  x <- x %>%
+    dplyr::full_join(...)
+}
+
+#combine data by cohort
+cohort_1 <- Dem_1 %>% 
+  dplyr::full_join(Glu_1)%>% 
+  dplyr::mutate(Cohort = 1) 
+
+cohort_2 <- Dem_2 %>%
+  dplyr::full_join(Glu_2) %>%
+  dplyr::mutate(Cohort = 2) 
+
+cohort_3 <- Dem_3 %>%
+  dplyr::full_join(Glu_3) %>%
+  dplyr::mutate(Cohort = 3) 
+
+cohort_4 <- Dem_4 %>%
+  dplyr::full_join(Glu_4) %>%
+  dplyr::full_join(OGTT_4)%>%
+  dplyr::mutate(Cohort = 4) 
+
+cohort_5 <- Dem_5 %>%
+  dplyr::full_join(Glu_5) %>%
+  dplyr::full_join(OGTT_5)%>%
+  dplyr::mutate(Cohort = 5)
+
+cohort_6 <- Dem_6 %>%
+  dplyr::full_join(Glu_6) %>%
+  dplyr::full_join(OGTT_6)%>%
+  dplyr::mutate(Cohort = 6)
+
+cohort_7 <- Dem_7 %>%
+  dplyr::full_join(Glu_7) %>%
+  dplyr::full_join(OGTT_7)%>%
+  dplyr::mutate(Cohort = 7) 
+
+cohort_8 <- Dem_8 %>%
+  dplyr::full_join(Glu_8) %>%
+  dplyr::full_join(OGTT_8)%>%
+  dplyr::mutate(Cohort = 8) 
+ 
+cohort_9 <- Dem_9 %>%
+  dplyr::full_join(Glu_9) %>%
+  dplyr::full_join(OGTT_9)%>%
+  dplyr::mutate(Cohort = 9) 
+
+#combine all cohorts 
+cohort_all_0 <- bind_rows(cohort_1, cohort_2, cohort_3, cohort_4, cohort_5, cohort_6, cohort_7, cohort_8, cohort_9) 
+
+#Rename and reorder columns 
+cohort_all <- cohort_all_0 %>% 
+  dplyr::rename(AGE = RIDAGEYR, GENDER = RIAGENDR, RACE = RIDRETH1, Plasma_Glucose = LBXGLU, PG_Weight = WTSAF2YR)
+#more than highschool coded as some college of AA degree (19 yr old) 
+
+cohort_all2 <- cohort_all %>% 
+  dplyr::select(SEQN, Cohort, AGE, GENDER, RACE, Plasma_Glucose, PG_Weight) 
+
+#Calibrate for Different Machines: Forward (want to match newest machine)
+cohort_all2 <- cohort_all2 %>% 
+  mutate(PG_Norm_1 = ifelse(Cohort < 4, 0.9815*Plasma_Glucose + 3.5707, Plasma_Glucose)) %>% 
+  mutate(PG_Norm_2 = ifelse(Cohort < 5, Plasma_Glucose + 1.148, Plasma_Glucose)) %>% 
+  mutate(PG_Norm_3 = ifelse(Cohort < 9, 1.023*Plasma_Glucose - 0.5108 , Plasma_Glucose)) 
+
+#Top Code at 80 
+cohort_all2$AGE[cohort_all2$AGE>80] <- 80 
+
+# Change M/F and Race to factors
+cohort_all2 <- cohort_all2 %>% 
+   mutate(GENDER = factor(GENDER, 
+             labels = c("Male", "Female")), 
+          RACE = factor(RACE, 
+              labels = c("Mexican American", "Other Hispanic","Non-Hispanic White","Non-Hispanic Black","Other Race/Multi-Racial")), 
+          Cohort = factor(Cohort, 
+              labels =  c("1999-2000","2001-2002","2003-2004","2005-2006","2007-2008","2009-2010","2011-2012","2013-2014","2015-2016")))
+
+PG <- cohort_all2 %>% 
+  filter(!is.na(Plasma_Glucose)) 
+
+cohort_all2 <- cohort_all2 %>% 
+  filter(PG_Weight != 0, !is.na(PG_Weight)) 
+
+#Means 
+nhanes_main_all <- cohort_all2 
+
+
+```

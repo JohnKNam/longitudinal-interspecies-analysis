@@ -1,0 +1,148 @@
+---
+title: "JAX Variables"
+author: "Eric Shiroma, John Nam"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r packages, warning=FALSE, message=FALSE, echo=FALSE}
+
+library (survival)
+library (broom)
+library (ggplot2)
+library (ggthemes)
+library (extrafont)
+library (arsenal)
+library (psych)
+library (survey)
+library (lubridate)
+library (lcmm)
+library (LCTMtools)
+library (kableExtra)
+library (gridExtra)
+library (ggpubr)
+library (grid)
+library (tinytex)
+library (haven)
+library (Hmisc)
+library (tidyverse)
+library (finalfit)
+library (survival)
+library (survminer)
+library (mgcv)
+
+knitr::opts_chunk$set(autodep = TRUE) 
+knitr::opts_chunk$set(warning = FALSE) 
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+
+```
+
+***
+
+```{r jax_jaxdata, warning=FALSE, message=FALSE, echo=FALSE}
+#jax <- read.csv("raw files/JAC_DO_phenotypes_compiled_v8.csv") %>% 
+jax <- read.csv("/Users/shiromaej/Box/ISG Code Check/data/jax/JAC_DO_phenotypes_compiled_v8.csv") %>%   
+  select(idno = Mouse.ID, sex = Sex, dob = DOB, strain = Coat.Color, cohort = Generation, contains("bw"), contains("gluc")) 
+
+jax$gluc.date.6 <- as.Date(as.character(jax$gluc.date.6), format = "%m/%d/%Y")
+jax$gluc.date.12 <- as.Date(as.character(jax$gluc.date.12), format = "%m/%d/%Y")
+jax$gluc.date.18 <- as.Date(as.character(jax$gluc.date.18), format = "%m/%d/%Y")
+```
+
+```{r jax_census, warning=FALSE, message=FALSE, echo=FALSE}
+census <- jax %>% 
+  select(idno, sex, strain, dob, cohort) 
+
+census$idno = as.character(census$idno)
+census$sex = as.character(census$sex)
+census$strain = as.character(census$strain)
+census$dob = as.Date(as.character(census$dob), format = "%m/%d/%Y")
+census$cohort = as.character(census$cohort)
+  
+```
+
+```{r jax_glucose, warning=FALSE, message=FALSE, echo=FALSE}
+##  
+gluc6 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("6")) 
+colnames(gluc6) <- c("idno", "date", "gluc") 
+
+gluc12 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("12")) 
+colnames(gluc12) <- c("idno", "date", "gluc")
+
+gluc18 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("18")) 
+colnames(gluc18) <- c("idno", "date", "gluc") 
+
+glucose <- rbind(gluc6, gluc12, gluc18) 
+
+glucose <- glucose %>% 
+  left_join(census) 
+
+glucose <- glucose %>% 
+  mutate(
+    age_wk = round(((date - dob) / 7), 2) + 1 
+  ) %>% 
+  select(idno, gluc, age_wk)
+
+glucose$gluc <- as.numeric(glucose$gluc)
+glucose$idno <- as.character(glucose$idno)
+  
+```
+
+```{r jax_main_all, warning=FALSE, message=FALSE, echo=FALSE}
+ 
+main_all <- glucose %>% 
+  left_join(census, by = c("idno")) %>% 
+  filter(!is.na(date) & !is.na(idno)) 
+
+main_all$age_wk <- as.numeric(main_all$age_wk)
+
+jax_main_all <- main_all 
+  
+```
+
+```{r jax_follow_up, warning=FALSE, message=FALSE, echo=FALSE, include=TRUE}
+
+max_fu <- main_all %>% 
+  group_by(idno) %>% 
+  mutate( 
+    max_fu = max(age_wk, na.rm=T) - min(age_wk, na.rm=T) + 1 
+  ) %>% 
+  select(idno, max_fu, sex, strain) %>% 
+  distinct() 
+max_fu$max_fu <- as.numeric(max_fu$max_fu) 
+
+print("summary of follow-up time (weeks)") 
+summary(max_fu$max_fu) 
+
+n_asmt <- main_all %>% 
+  group_by(idno) %>% 
+  summarise_all(funs( 
+    n = sum(!is.na(.)) 
+  )) %>% 
+  select(gluc_n) 
+
+# print("Summary of n glucose assessments")
+gluc_asmt <- summary(n_asmt$gluc_n)
+
+sextable <- table(main_all$sex)
+straintable <- table(main_all$strain)
+
+jax_sex_ratio = round(((sextable[1] / (sextable[1] + sextable[2]))*100), 2)
+jax_strain_ratio = round(((straintable[1] / (straintable[1] + straintable[2]))*100), 2)
+
+jax_gluc_asmt <- format(round(gluc_asmt["Mean"], 2), nsmall=2)
+jax_gluc_asmt_sd <- format(round(sd(n_asmt$gluc_n), 2), nsmall=2)
+
+```
+
+

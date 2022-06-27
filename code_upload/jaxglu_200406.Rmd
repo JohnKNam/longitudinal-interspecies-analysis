@@ -1,0 +1,233 @@
+---
+title: "JAX Variables"
+author: "Eric Shiroma, John Nam"
+date: "`r format(Sys.time(), '%Y %B %d')`"
+output:
+  html_document:
+    css: style.css
+    df_print: paged
+---
+
+```{r packages, warning=FALSE, message=FALSE, echo=FALSE}
+
+library (survival)
+library (broom)
+library (ggplot2)
+library (ggthemes)
+library (extrafont)
+library (arsenal)
+library (psych)
+library (survey)
+library (lubridate)
+library (lcmm)
+library (LCTMtools)
+library (kableExtra)
+library (gridExtra)
+library (ggpubr)
+library (grid)
+library (tinytex)
+library (haven)
+library (Hmisc)
+library (tidyverse)
+library (finalfit)
+library (survival)
+library (survminer)
+library (mgcv)
+
+knitr::opts_chunk$set(autodep = TRUE) 
+knitr::opts_chunk$set(warning = FALSE) 
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+
+```
+
+***
+
+#### census data read in
+  - input file census.csv (12/5/2019)
+  
+```{r jax_jaxdata, warning=FALSE, message=FALSE, echo=FALSE}
+
+# jax <- read.csv("data/jax/JAC_DO_phenotypes_compiled_v8.csv") %>%
+jax <- read.csv("/Users/shiromaej/Box/ISG Code Check/data/jax/JAC_DO_phenotypes_compiled_v8.csv") %>%
+  select(idno = Mouse.ID, sex = Sex, dob = DOB, strain = Coat.Color, tod = Death.date, cod = Death.type, cohort = Generation, contains("bw"), contains("gluc")) 
+
+jax$gluc.date.6 <- as.Date(as.character(jax$gluc.date.6), format = "%m/%d/%Y")
+jax$gluc.date.12 <- as.Date(as.character(jax$gluc.date.12), format = "%m/%d/%Y")
+jax$gluc.date.18 <- as.Date(as.character(jax$gluc.date.18), format = "%m/%d/%Y")
+
+census <- jax %>% 
+  select(idno, sex, strain, dob, cohort) 
+
+census$idno = as.character(census$idno)
+census$sex = as.character(census$sex)
+census$strain = as.character(census$strain)
+census$dob = as.Date(as.character(census$dob), format = "%m/%d/%Y")
+census$cohort = as.character(census$cohort)
+  
+```
+
+#### glucose data creation
+- pull glucose timepoints 
+- calculate age in weeks
+
+```{r jax_glucose, warning=FALSE, message=FALSE, echo=FALSE}
+##  
+gluc6 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("6")) 
+colnames(gluc6) <- c("idno", "date", "gluc") 
+
+gluc12 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("12")) 
+colnames(gluc12) <- c("idno", "date", "gluc")
+
+gluc18 <- jax %>% 
+  select(idno, contains("gluc"), -contains("ctrl")) %>% 
+  select(idno, contains("18")) 
+colnames(gluc18) <- c("idno", "date", "gluc") 
+
+glucose <- rbind(gluc6, gluc12, gluc18) 
+
+glucose <- glucose %>% 
+  left_join(census) 
+
+glucose <- glucose %>% 
+  mutate(
+    age_wk = round(((date - dob) / 7), 2) + 1 
+  ) %>% 
+  select(idno, gluc, age_wk)
+
+glucose$gluc <- as.numeric(glucose$gluc)
+glucose$idno <- as.character(glucose$idno)
+  
+```
+
+#### merging all datasets into a main file 
+  - glucose
+  - census
+
+```{r jax_main_all, warning=FALSE, message=FALSE, echo=FALSE}
+ 
+main_all <- glucose %>% 
+  left_join(census, by = c("idno")) %>% 
+  filter(!is.na(date) & !is.na(idno)) 
+
+main_all$age_wk <- as.numeric(main_all$age_wk)
+
+```
+
+#### create survival dataset
+
+```{r jax_survival, warning=FALSE, message=FALSE, echo=FALSE}
+
+surv <- jax %>% 
+  select(idno, tod, cod) 
+  surv$tod <- as.Date(surv$tod, "%m/%d/%Y") 
+  surv$idno <- as.character(surv$idno) 
+  surv$cod <- as.character((surv$cod)) 
+
+```
+
+#### census_c16_death creation
+  - merge 
+    - census
+    - surv
+    - main_all2
+  - remove mice with missing time of death
+  - create all cause death censor category
+    - includes "F.D" designation
+
+```{r jax_censor_df, warning=FALSE, message=FALSE, echo=FALSE}
+
+census_c16_death <- census %>% 
+  select(idno, dob) %>% 
+  distinct() %>% 
+  left_join(main_all, by = c("idno", "dob")) %>% 
+  left_join(surv, by = c("idno")) %>% 
+  group_by(idno, cod, dob, sex, tod) %>% 
+  summarise(maxdate = max(tod),
+            age_first = min(age_wk, na.rm=T), 
+            age_last = max(age_wk, na.rm=T)) %>% 
+  mutate( 
+    le_wk = floor(((maxdate - dob) + 1) / 7), 
+    dead_censor = ifelse(cod == "F.D.", 1, 
+              ifelse(cod == "F.D. (Y)", 1, 
+              ifelse(cod == "F.D.", 1, 
+              ifelse(cod == "FD", 1, 
+              ifelse(cod == "F.D.", 1, 
+              ifelse(cod == "F.D. (Y) ulcerated leg.", 1, 
+              ifelse(cod == "F.D. (Y) derm", 1, 
+              ifelse(cod == "F.D. (Y)-lump on throat", 1, 
+              ifelse(cod == "F.D>", 1, 
+              ifelse(cod == "F.D. (Y) para.", 1, 
+              ifelse(cod == "F.D. (Y)(para)", 1, 
+              ifelse(is.na(cod), 0, 0))))))))))))
+         ) %>% 
+  ungroup() %>% 
+  filter(!is.na(maxdate)) %>% 
+  select(idno, dead_censor, le_wk, cod, sex) 
+
+```
+
+#### life expectancy
+
+```{r jax_life_expectancy}
+
+create_LE <- function(data, criteria, filter){
+
+life_exp <- data %>% 
+  ungroup() %>% 
+  filter(!!filter) %>% 
+  summarise( 
+            total = n_distinct(idno), 
+            dead = n_distinct(idno[!!criteria]), 
+            life_exp_wk = round(mean(le_wk[!!criteria]), 2), 
+            sd = round(sd(as.numeric(le_wk[!!criteria])), 2), 
+            se = round(sd(as.numeric(le_wk[!!criteria])) / sqrt(dead),2),
+            lcl = round(life_exp_wk - 1.96 * se, 2), 
+            ucl = round(life_exp_wk + 1.96 * se, 2) 
+  ) 
+life_exp$life_exp_wk <- as.numeric(life_exp$life_exp_wk) 
+
+return(life_exp)
+
+} 
+
+life_exp <- create_LE(data = census_c16_death, criteria = quote(dead_censor %in% c(1)), filter = quote(sex %in% c("M", "F"))) 
+life_exp_f <- create_LE(data = census_c16_death, criteria = quote(dead_censor %in% c(1)), filter = quote(sex %in% c("F"))) 
+life_exp_m <- create_LE(data = census_c16_death, criteria = quote(dead_censor %in% c(1)), filter = quote(sex %in% c("M"))) 
+
+``` 
+
+#### create timepoints as percent life expectancy
+- "per_age_wk" in main_all
+
+```{r jax_percent_le, warning=FALSE, message=FALSE, echo=FALSE, cache=TRUE}
+main_all <- main_all %>% 
+  mutate(per_age_wk = 
+           ifelse(sex == "M", (age_wk / life_exp_m$life_exp_wk)*100, 
+           ifelse(sex == "F", (age_wk / life_exp_f$life_exp_wk)*100, age_wk / life_exp$life_exp_wk))
+  )
+
+jax_main_all <- main_all
+```
+
+```{r jax_asmt_times, warning=FALSE, message=FALSE, echo=FALSE, cache=TRUE}
+
+n_asmt <- main_all %>% 
+  group_by(idno) %>% 
+  summarise_all(funs( 
+    n = sum(!is.na(.)) 
+  )) %>% 
+  select(gluc_n) 
+
+gluc_asmt <- summary(n_asmt$gluc_n)
+
+jax_gluc_asmt <- format(round(gluc_asmt["Mean"], 2), nsmall=2)
+jax_gluc_asmt_sd <- format(round(sd(n_asmt$gluc_n), 2), nsmall=2)
+
+```
+
